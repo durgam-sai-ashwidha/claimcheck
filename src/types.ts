@@ -8,10 +8,14 @@ export type ReasoningIssue =
   | 'None'
   | 'Metric mismatch'
   | 'Population leap'
+  | 'Causation overreach'
   | 'Causal leap'
+  | 'Duration overreach'
   | 'Temporal overreach'
+  | 'Scope expansion'
   | 'Generalization leap'
-  | 'Magnitude inflation';
+  | 'Magnitude inflation'
+  | 'No direct evidence';
 
 export type ClaimOutcome =
   | 'Supported'
@@ -55,6 +59,8 @@ export interface ClaimAnalysis {
   suggestedRevision: string;
   reviewerAction: ReviewerAction;
   highlightPhrases?: string[];
+  sourceEstablishes?: string;
+  claimAddsOrChanges?: string;
 }
 
 export interface AnalysisResult {

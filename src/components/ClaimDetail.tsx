@@ -1,15 +1,11 @@
 import React from 'react';
 import {
-  ArrowRight,
   FileText,
-  AlertTriangle,
   UserCheck,
   Edit3,
   Search,
   BookOpen,
-  User,
   ShieldCheck,
-  HelpCircle,
 } from 'lucide-react';
 import { ClaimAnalysis, SourcePassage } from '../types';
 
@@ -39,10 +35,14 @@ export const ClaimDetail: React.FC<ClaimDetailProps> = ({
   );
 
   const primaryPassage = referencedPassages[0] || null;
-  const isUnsupported =
-    claim.outcome === 'Unsupported' ||
-    claim.evidenceRelationship === 'No relevant evidence' ||
-    referencedPassages.length === 0;
+
+  const isSupportedNoIssues =
+    claim.outcome === 'Supported' &&
+    (claim.reasoningIssue === 'None' || !claim.reasoningIssue) &&
+    (!claim.missingEvidence ||
+      claim.missingEvidence.trim().toLowerCase() === 'none' ||
+      claim.missingEvidence.trim().toLowerCase() === 'none.' ||
+      claim.missingEvidence.trim().toLowerCase() === 'none specified.');
 
   const renderHighlightedText = (text: string, highlights: string[] = []) => {
     if (!highlights || highlights.length === 0) return text;
@@ -77,32 +77,32 @@ export const ClaimDetail: React.FC<ClaimDetailProps> = ({
     switch (claim.outcome) {
       case 'Supported':
         return (
-          <span className="inline-flex items-center px-3.5 py-1 rounded-full text-xs font-bold tracking-wide bg-[#D7EED9] text-[#1E6B35]">
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold tracking-wide bg-[#D7EED9] text-[#1E6B35]">
             SUPPORTED
           </span>
         );
       case 'Overreach detected':
         return (
-          <span className="inline-flex items-center px-3.5 py-1 rounded-full text-xs font-bold tracking-wide bg-[#FDD9C2] text-[#A84315]">
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold tracking-wide bg-[#FDD9C2] text-[#A84315]">
             OVERREACH DETECTED
           </span>
         );
       case 'Contradicted':
         return (
-          <span className="inline-flex items-center px-3.5 py-1 rounded-full text-xs font-bold tracking-wide bg-[#FCD8D8] text-[#B82B2B]">
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold tracking-wide bg-[#FCD8D8] text-[#B82B2B]">
             CONTRADICTED
           </span>
         );
       case 'Needs review':
         return (
-          <span className="inline-flex items-center px-3.5 py-1 rounded-full text-xs font-bold tracking-wide bg-[#F9E6B3] text-[#8C600B]">
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold tracking-wide bg-[#F9E6B3] text-[#8C600B]">
             NEEDS REVIEW
           </span>
         );
       case 'Unsupported':
       default:
         return (
-          <span className="inline-flex items-center px-3.5 py-1 rounded-full text-xs font-bold tracking-wide bg-[#E2E8F0] text-[#334155] border border-[#CBD5E1]">
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold tracking-wide bg-[#E2E8F0] text-[#334155] border border-[#CBD5E1]">
             UNSUPPORTED BY SUPPLIED SOURCES
           </span>
         );
@@ -139,11 +139,33 @@ export const ClaimDetail: React.FC<ClaimDetailProps> = ({
     }
   };
 
+  // Compute clean suggested grounded revision
+  let displayRevision = (claim.suggestedRevision || '').replace(/^["']|["']$/g, '').trim();
+
+  if (claim.outcome === 'Supported' || isSupportedNoIssues) {
+    displayRevision = 'No revision required. This claim is fully supported by the cited source passage.';
+  } else if (claim.outcome === 'Needs review') {
+    if (!displayRevision || displayRevision.toLowerCase() === 'none' || displayRevision.toLowerCase().includes('check the source')) {
+      displayRevision = 'A human reviewer should determine whether additional evidence resolves the ambiguity.';
+    }
+  } else if (claim.outcome === 'Unsupported') {
+    if (!displayRevision || displayRevision.toLowerCase() === 'none' || displayRevision.toLowerCase().includes('verify the claim')) {
+      const missing = claim.missingEvidence && claim.missingEvidence.toLowerCase() !== 'none'
+        ? claim.missingEvidence.trim().replace(/\.$/, '')
+        : 'the claimed outcome';
+      displayRevision = `Remove this claim or provide a source that directly measures or establishes ${missing}.`;
+    }
+  } else if (claim.outcome === 'Overreach detected') {
+    if (!displayRevision || displayRevision.toLowerCase() === 'none') {
+      displayRevision = claim.sourceEstablishes || 'Rewrite this claim so it states only what is established by the cited evidence.';
+    }
+  }
+
   return (
     <div
       role="region"
       aria-label={`Claim Detail: ${claim.id}`}
-      className="p-6 lg:p-8 space-y-7 bg-[#FAF8F5] overflow-y-auto"
+      className="p-6 lg:p-8 space-y-6 bg-[#FAF8F5] overflow-y-auto"
     >
       {/* Action feedback toast */}
       {actionFeedback && (
@@ -156,11 +178,11 @@ export const ClaimDetail: React.FC<ClaimDetailProps> = ({
         </div>
       )}
 
-      {/* Title & Outcome Header */}
+      {/* 1. Claim Header */}
       <div className="space-y-3">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <span className="text-xs uppercase tracking-wider font-bold text-[#57534E] block">
-            {claim.id} / CLAIM DETAIL
+            {claim.id} / CLAIM
           </span>
           {isHumanReviewRequested && (
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[#EDE9FE] text-[#6D28D9] border border-[#DDD6FE]">
@@ -170,220 +192,141 @@ export const ClaimDetail: React.FC<ClaimDetailProps> = ({
           )}
         </div>
 
-        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-serif font-bold text-[#15231D] tracking-tight leading-snug">
+        <h1 className="text-2xl sm:text-3xl font-serif font-bold text-[#15231D] tracking-tight leading-snug">
           {claim.text}
         </h1>
-
-        <div>{getOutcomePill()}</div>
       </div>
 
-      {/* Visual Pipeline Flow (Claim -> Source -> Reasoning Issue -> Review Action) */}
-      <div className="p-4 rounded-xl bg-[#F4F1EA] border border-[#DDD8CE]">
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
-          {/* Step 1: Claim */}
-          <div className="flex items-center gap-2.5 flex-1 min-w-0">
-            <div className="w-8 h-8 rounded-lg bg-white border border-[#DDD8CE] flex items-center justify-center shrink-0">
-              <FileText className="w-4 h-4 text-[#143D30]" />
-            </div>
-            <div className="min-w-0">
-              <span className="text-[10px] uppercase font-bold text-[#78716C] block">
-                CLAIM
-              </span>
-              <span className="font-semibold text-[#15231D] truncate block">
-                {claim.id}
-              </span>
-            </div>
-          </div>
+      {/* 2. Verdict, 3. Evidence Relationship, 4. Reasoning Issue, 5. Source Passage ID */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 rounded-xl bg-white border border-[#DDD8CE] shadow-2xs">
+        {/* 2. Verdict */}
+        <div className="space-y-1">
+          <span className="text-[10px] uppercase font-bold text-[#78716C] block">
+            Verdict
+          </span>
+          <div>{getOutcomePill()}</div>
+        </div>
 
-          <ArrowRight className="hidden sm:block w-4 h-4 text-[#A8A29E] shrink-0" />
+        {/* 3. Evidence Relationship */}
+        <div className="space-y-1">
+          <span className="text-[10px] uppercase font-bold text-[#78716C] block">
+            Evidence Relationship
+          </span>
+          <div>{getRelationshipPill()}</div>
+        </div>
 
-          {/* Step 2: Source */}
-          <div className="flex items-center gap-2.5 flex-1 min-w-0">
-            <div className="w-8 h-8 rounded-lg bg-white border border-[#DDD8CE] flex items-center justify-center shrink-0">
-              <FileText className="w-4 h-4 text-[#143D30]" />
-            </div>
-            <div className="min-w-0">
-              <span className="text-[10px] uppercase font-bold text-[#78716C] block">
-                SOURCE
-              </span>
-              <span className="font-semibold text-[#15231D] truncate block font-mono">
-                {claim.relevantPassageIds.length > 0 ? claim.relevantPassageIds.join(', ') : 'None'}
-              </span>
-            </div>
-          </div>
+        {/* 4. Reasoning Issue */}
+        <div className="space-y-1">
+          <span className="text-[10px] uppercase font-bold text-[#78716C] block">
+            Reasoning Issue
+          </span>
+          <span
+            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${
+              claim.reasoningIssue !== 'None'
+                ? 'bg-[#FDD9C2] text-[#A84315]'
+                : 'bg-[#D7EED9] text-[#1E6B35]'
+            }`}
+          >
+            {claim.reasoningIssue.toUpperCase()}
+          </span>
+        </div>
 
-          <ArrowRight className="hidden sm:block w-4 h-4 text-[#A8A29E] shrink-0" />
-
-          {/* Step 3: Reasoning Issue */}
-          <div className="flex items-center gap-2.5 flex-1 min-w-0">
-            <div className="w-8 h-8 rounded-lg bg-white border border-[#DDD8CE] flex items-center justify-center shrink-0">
-              <AlertTriangle
-                className={`w-4 h-4 ${
-                  claim.reasoningIssue !== 'None' ? 'text-[#C2410C]' : 'text-[#16A34A]'
-                }`}
-              />
-            </div>
-            <div className="min-w-0">
-              <span className="text-[10px] uppercase font-bold text-[#C2410C] block">
-                {claim.reasoningIssue.toUpperCase()}
-              </span>
-              <span className="text-[11px] text-[#78716C] truncate block">
-                (reasoning issue)
-              </span>
-            </div>
-          </div>
-
-          <ArrowRight className="hidden sm:block w-4 h-4 text-[#A8A29E] shrink-0" />
-
-          {/* Step 4: Review Action */}
-          <div className="flex items-center gap-2.5 flex-1 min-w-0">
-            <div className="w-8 h-8 rounded-lg bg-white border border-[#DDD8CE] flex items-center justify-center shrink-0">
-              <User className="w-4 h-4 text-[#143D30]" />
-            </div>
-            <div className="min-w-0">
-              <span className="text-[10px] uppercase font-bold text-[#78716C] block">
-                REVIEW ACTION
-              </span>
-              <span className="text-[11px] text-[#57534E] truncate block">
-                {isHumanReviewRequested ? 'In Human Review' : claim.reviewerAction || 'Review manually'}
-              </span>
-            </div>
-          </div>
+        {/* 5. Source Passage ID */}
+        <div className="space-y-1">
+          <span className="text-[10px] uppercase font-bold text-[#78716C] block">
+            Source Passage ID
+          </span>
+          <span className="font-mono text-xs font-bold text-[#15231D] px-2.5 py-1 bg-[#FAF8F5] border border-[#DDD8CE] rounded-lg inline-block">
+            {claim.relevantPassageIds.length > 0
+              ? claim.relevantPassageIds.join(', ')
+              : 'None'}
+          </span>
         </div>
       </div>
 
-      {/* Section: Evidence Chain */}
-      <div className="space-y-3">
-        <h2 className="text-xl font-serif font-bold text-[#15231D]">Evidence chain</h2>
-
-        {/* REQUIREMENT 8: NO EVIDENCE IS A VALID RESULT */}
-        {isUnsupported ? (
-          <div className="p-6 rounded-xl bg-white border border-[#DDD8CE] space-y-3 shadow-2xs">
-            <div className="flex items-center gap-2">
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-bold bg-[#E2E8F0] text-[#334155]">
-                Unsupported by supplied sources
+      {/* 6. Exact Source Excerpt */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <span className="text-xs uppercase tracking-wider font-bold text-[#57534E] flex items-center gap-2">
+            <FileText className="w-4 h-4 text-[#143D30]" />
+            <span>Exact Source Excerpt</span>
+            {primaryPassage && (
+              <span className="font-mono text-[11px] text-[#78716C]">
+                ({primaryPassage.id})
               </span>
-              <span className="text-xs text-[#78716C] font-mono">Analytical Finding</span>
-            </div>
-            <p className="text-base text-[#15231D] font-medium leading-relaxed">
+            )}
+          </span>
+        </div>
+
+        <div className="p-4 rounded-xl bg-white border border-[#DDD8CE] text-sm text-[#15231D] font-mono leading-relaxed shadow-2xs">
+          {primaryPassage ? (
+            renderHighlightedText(
+              primaryPassage.text,
+              claim.highlightPhrases && claim.highlightPhrases.length > 0
+                ? claim.highlightPhrases
+                : []
+            )
+          ) : (
+            <span className="text-xs text-[#78716C] italic font-sans">
               No passage in the supplied sources establishes this full claim.
-            </p>
-            <p className="text-xs text-[#57534E] leading-relaxed">
-              {claim.explanation ||
-                'This claim was evaluated against all supplied source passages. None of the passages contain corroborating factual evidence or empirical metrics to substantiate it.'}
-            </p>
-            <div className="pt-2 text-xs text-[#78716C] border-t border-[#EFECE6] flex items-center gap-1.5">
-              <HelpCircle className="w-3.5 h-3.5 text-[#57534E]" />
-              <span>This is an evidence integrity result, not a system failure.</span>
-            </div>
-          </div>
-        ) : (
-          <div className="p-6 rounded-xl bg-[#F4F1EA] border border-[#DDD8CE] space-y-4">
-            <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-6">
-              {/* Left Quote Box */}
-              <div className="flex-1 space-y-2.5 min-w-0">
-                <div className="flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-[#143D30]" />
-                  <span className="font-bold text-xs text-[#15231D]">
-                    {primaryPassage?.sourceLabel || 'Source Document'}
-                  </span>
-                  {primaryPassage && (
-                    <span className="text-xs font-mono text-[#78716C]">
-                      {primaryPassage.id}
-                    </span>
-                  )}
-                </div>
-
-                <div className="p-4 rounded-lg bg-white border border-[#DDD8CE] text-sm text-[#15231D] font-mono leading-relaxed shadow-2xs">
-                  {primaryPassage ? (
-                    renderHighlightedText(
-                      primaryPassage.text,
-                      claim.highlightPhrases && claim.highlightPhrases.length > 0
-                        ? claim.highlightPhrases
-                        : []
-                    )
-                  ) : (
-                    <span className="text-xs text-[#78716C] italic font-sans">
-                      No passage citation available.
-                    </span>
-                  )}
-                </div>
-
-                <p className="text-xs text-[#78716C]">
-                  {primaryPassage
-                    ? `Exact excerpt from source (${primaryPassage.id})`
-                    : 'No passage citation available'}
-                </p>
-              </div>
-
-              {/* Right Assessment Details */}
-              <div className="w-full lg:w-72 space-y-4 text-xs shrink-0">
-                <div>
-                  <span className="text-[10px] uppercase font-bold text-[#78716C] block mb-1">
-                    EVIDENCE RELATIONSHIP
-                  </span>
-                  {getRelationshipPill()}
-                </div>
-
-                <div>
-                  <span className="text-[10px] uppercase font-bold text-[#78716C] block mb-1">
-                    REASONING ISSUE
-                  </span>
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#FDD9C2] text-[#A84315]">
-                    {claim.reasoningIssue.toUpperCase()}
-                  </span>
-                </div>
-
-                <p className="text-xs text-[#44403C] leading-relaxed pt-1">
-                  {claim.explanation}
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Section: Claim Analysis */}
-      <div className="space-y-3">
-        <h2 className="text-xl font-serif font-bold text-[#15231D]">Claim analysis</h2>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          {/* Claim Type */}
-          <div className="space-y-2">
-            <span className="text-[10px] uppercase font-bold text-[#78716C] block">
-              CLAIM TYPE
             </span>
-            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-[#EAE8E2] text-[#292524]">
-              {claim.claimType}
-            </span>
-          </div>
-
-          {/* Missing Evidence */}
-          <div className="space-y-2">
-            <span className="text-[10px] uppercase font-bold text-[#78716C] block">
-              MISSING EVIDENCE
-            </span>
-            <p className="text-xs text-[#44403C] leading-relaxed">
-              {claim.missingEvidence || 'None specified.'}
-            </p>
-          </div>
-
-          {/* Suggested Revision */}
-          <div className="space-y-2">
-            <span className="text-[10px] uppercase font-bold text-[#78716C] block">
-              SUGGESTED REVISION
-            </span>
-            <div className="p-3.5 rounded-lg bg-[#EAE8E2] border border-[#DDD8CE] text-xs font-serif italic text-[#292524] leading-relaxed">
-              "{claim.suggestedRevision || claim.text}"
-            </div>
-          </div>
+          )}
         </div>
       </div>
 
-      {/* Section: Reviewer Action */}
+      {/* 7. What the Source Establishes & 8. What the Claim Adds or Changes */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* 7. What the Source Establishes */}
+        <div className="p-4 rounded-xl bg-white border border-[#DDD8CE] space-y-2 shadow-2xs">
+          <span className="text-[10px] uppercase font-bold text-[#143D30] tracking-wider block">
+            WHAT THE SOURCE ESTABLISHES
+          </span>
+          <p className="text-xs sm:text-sm text-[#15231D] leading-relaxed">
+            {claim.sourceEstablishes ||
+              (primaryPassage
+                ? primaryPassage.text
+                : 'The supplied sources do not establish this outcome.')}
+          </p>
+        </div>
+
+        {/* 8. What the Claim Adds or Changes */}
+        <div className="p-4 rounded-xl bg-white border border-[#DDD8CE] space-y-2 shadow-2xs">
+          <span className="text-[10px] uppercase font-bold text-[#C2410C] tracking-wider block">
+            WHAT THE CLAIM ADDS OR CHANGES
+          </span>
+          <p className="text-xs sm:text-sm text-[#15231D] leading-relaxed">
+            {claim.claimAddsOrChanges ||
+              (claim.outcome === 'Supported'
+                ? 'None. The claim accurately reflects the source.'
+                : `Substitutes or expands with ${claim.reasoningIssue.toLowerCase()} without empirical evidence.`)}
+          </p>
+        </div>
+      </div>
+
+      {/* Explanation summary */}
+      {claim.explanation && (
+        <div className="p-3.5 rounded-xl bg-[#F4F1EA] border border-[#DDD8CE] text-xs text-[#44403C] leading-relaxed">
+          <span className="font-bold text-[#15231D] block mb-1 uppercase text-[10px] tracking-wider">
+            Evidence Explanation
+          </span>
+          {claim.explanation}
+        </div>
+      )}
+
+      {/* 9. Suggested Grounded Revision */}
+      <div className="space-y-2">
+        <span className="text-[10px] uppercase tracking-wider font-bold text-[#78716C] block">
+          SUGGESTED GROUNDED REVISION
+        </span>
+        <div className="p-4 rounded-xl bg-[#EAE8E2] border border-[#DDD8CE] text-xs sm:text-sm font-serif text-[#15231D] leading-relaxed">
+          {displayRevision}
+        </div>
+      </div>
+
+      {/* 10. Reviewer Actions */}
       <div className="space-y-3 pt-2">
         <span className="text-[10px] uppercase tracking-wider font-bold text-[#78716C] block">
-          REVIEWER ACTION
+          REVIEWER ACTIONS
         </span>
 
         <div className="flex flex-wrap items-center gap-3">

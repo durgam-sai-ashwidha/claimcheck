@@ -88,10 +88,14 @@ export function validateAndEnforceClaim(
     'None',
     'Metric mismatch',
     'Population leap',
+    'Causation overreach',
     'Causal leap',
+    'Duration overreach',
     'Temporal overreach',
+    'Scope expansion',
     'Generalization leap',
     'Magnitude inflation',
+    'No direct evidence',
   ];
   const validOutcomes: ClaimOutcome[] = [
     'Supported',
@@ -185,6 +189,51 @@ export function validateAndEnforceClaim(
     outcome = 'Overreach detected';
   }
 
+  // Standardize reasoning issue naming
+  if (issue === 'Temporal overreach') issue = 'Duration overreach';
+  if (issue === 'Causal leap') issue = 'Causation overreach';
+  if (issue === 'Generalization leap') issue = 'Scope expansion';
+
+  // Never treat "not measured" as a contradiction. If an outcome was explicitly not measured, use:
+  // verdict: "Overreach detected", evidenceRelationship: "No relevant evidence", reasoningIssue: "Metric mismatch" or "No direct evidence"
+  const combinedContext = `${String(rawClaim?.explanation || '')} ${String(rawClaim?.missingEvidence || '')} ${validPassageIds.map((id) => passageMap.get(id)?.text || '').join(' ')}`;
+  if ((outcome === 'Contradicted' || rel === 'Contradicts') && /not measure|unmeasured|did not assess|outside the study group/i.test(combinedContext)) {
+    outcome = 'Overreach detected';
+    rel = 'No relevant evidence';
+    if (issue === 'None') issue = 'Metric mismatch';
+  }
+
+  // Rule 5: Clean and enforce suggested revision rules
+  let cleanRevision = String(rawClaim?.suggestedRevision || '').trim().replace(/^["']|["']$/g, '');
+
+  if (outcome === 'Supported') {
+    cleanRevision = 'No revision required. This claim is fully supported by the cited source passage.';
+  } else if (outcome === 'Unsupported') {
+    if (!cleanRevision || cleanRevision.toLowerCase() === 'none' || cleanRevision.toLowerCase() === 'none.' || cleanRevision.toLowerCase().startsWith('the study did not')) {
+      const missing = rawClaim?.missingEvidence && rawClaim.missingEvidence.toLowerCase() !== 'none'
+        ? String(rawClaim.missingEvidence).trim().replace(/\.$/, '')
+        : 'the claimed outcome';
+      cleanRevision = `Remove this claim or provide a source that directly measures or establishes ${missing}.`;
+    }
+  } else if (outcome === 'Overreach detected') {
+    if (!cleanRevision || cleanRevision.toLowerCase() === 'none' || cleanRevision.toLowerCase() === 'none.') {
+      cleanRevision = String(rawClaim?.text || 'Rewrite this claim so it states only what is established by the cited evidence.');
+    }
+  } else if (outcome === 'Needs review') {
+    if (!cleanRevision || cleanRevision.toLowerCase() === 'none' || cleanRevision.toLowerCase() === 'none.') {
+      cleanRevision = 'A human reviewer should determine whether additional evidence resolves the ambiguity.';
+    }
+  }
+
+  // Populate sourceEstablishes and claimAddsOrChanges
+  let sourceEstablishes = rawClaim?.sourceEstablishes
+    ? String(rawClaim.sourceEstablishes).trim()
+    : (validPassageIds.length > 0 ? passageMap.get(validPassageIds[0])?.text || '' : 'The supplied sources do not establish this outcome.');
+
+  let claimAddsOrChanges = rawClaim?.claimAddsOrChanges
+    ? String(rawClaim.claimAddsOrChanges).trim()
+    : (outcome === 'Supported' ? 'None. The claim accurately reflects the source.' : `Asserts an unverified outcome (${issue.toLowerCase()}).`);
+
   // Ensure outcome, relationship, and reasoning issue remain separate fields
   const explanation = rawClaim?.explanation
     ? String(rawClaim.explanation)
@@ -205,9 +254,11 @@ export function validateAndEnforceClaim(
     outcome: outcome,
     explanation: fullExplanation,
     missingEvidence: String(rawClaim?.missingEvidence || 'None'),
-    suggestedRevision: String(rawClaim?.suggestedRevision || rawClaim?.text || ''),
+    suggestedRevision: cleanRevision,
     reviewerAction: rawClaim?.reviewerAction || 'Review manually',
     highlightPhrases: Array.isArray(rawClaim?.highlightPhrases) ? rawClaim.highlightPhrases : [],
+    sourceEstablishes,
+    claimAddsOrChanges,
   };
 
   return { claim, isValid, validationNotes };

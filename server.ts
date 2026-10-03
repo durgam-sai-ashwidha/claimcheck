@@ -89,18 +89,62 @@ ${reportText}
 CANONICAL SOURCE PASSAGES:
 ${passagesContext}
 
-CRITICAL INSTRUCTIONS:
-1. Extract atomic, discrete claims made in the report text (extract 1 to 6 claims depending on report length). You MUST preserve all quantifiers, scope modifiers, and population targets (e.g. "all", "entire organization", "all corporate personnel", "every student", "causes", "permanently") exactly as stated in the report. NEVER strip or truncate population or scope words from the claim text.
-2. For each claim, select relevant passage IDs ONLY from this exact valid list: [${passages.map((p) => p.id).join(', ')}]. If no source passage is relevant, return an empty array [].
-3. DO NOT mark a claim Supported just because of lexical similarity or matching numbers.
-   * Example: If the source says "40% reported enjoying the application" and the claim says "improved academic performance by 40%", this is a METRIC MISMATCH and must be classified as "Overreach detected" (or "Needs review").
-   * Example: If the source evaluated a small or specific sample (e.g. 10 engineers) and the claim asserts efficacy for "all corporate personnel" or "entire organization", this is a POPULATION LEAP and must be classified as "Overreach detected".
-4. evidenceRelationship MUST be one of: "Supports" | "Contradicts" | "Partial support" | "No relevant evidence".
-5. reasoningIssue MUST be one of: "None" | "Metric mismatch" | "Population leap" | "Causal leap" | "Temporal overreach" | "Generalization leap" | "Magnitude inflation".
-6. outcome MUST be one of: "Supported" | "Overreach detected" | "Contradicted" | "Needs review" | "Unsupported".
-   * RULE: A claim CANNOT have outcome "Supported" if evidenceRelationship is "Partial support", "Contradicts", or "No relevant evidence", or if any reasoningIssue is detected. If evidence is partial or overreaching, assign "Overreach detected" or "Needs review".
-7. Keep relationship, reasoning_issue, and outcome strictly separated in distinct fields.
-8. If evidence is missing, contradictory, or uncertain, use "Needs review" or "Unsupported".`;
+VERDICT DEFINITIONS:
+- "Supported": The cited source directly states or unambiguously entails every material part of the claim.
+- "Overreach detected": The claim reuses some source information but expands, substitutes, exaggerates, or generalizes beyond what the source establishes.
+- "Contradicted": The source explicitly states the opposite of a material part of the claim.
+- "Unsupported": No supplied passage provides evidence for the claim.
+- "Needs review": Evidence is ambiguous, mixed, incomplete, or cannot be safely classified.
+
+EVIDENCE RELATIONSHIP RULES:
+- Use "Supports" ONLY when the cited passage supports all material components of the claim.
+- Use "Contradicts" ONLY when a passage explicitly says the claim is false or states the opposite.
+- Use "No relevant evidence" when the source does not measure, mention, or establish the claimed outcome.
+- Use "Partially supports" when the passage supports one portion but not the full claim.
+
+REASONING ISSUE LABELS:
+Return one concise label:
+- "Metric mismatch": The source measures one thing but the claim asserts another (e.g. stress reduction vs heart disease risk, enjoyment vs academic performance).
+- "Population leap": The source sample is generalized to a larger or different population (e.g. 120 adults generalized to all adults or people outside study group).
+- "Causation overreach": The source reports an association or observation but the claim asserts causation.
+- "Duration overreach": The source covers a limited time period (e.g. 12 weeks) but the claim asserts permanence ("permanently", "forever") or long-term impact.
+- "Scope expansion": The claim adds outcomes, certainty, scale, or implications absent from the source.
+- "No direct evidence": The supplied sources do not establish the claim.
+- "None": Only for fully supported claims.
+
+REQUIRED OUTPUT BEHAVIOR:
+1. Extract atomic, discrete claims made in the report text (1 to 6 claims). You MUST preserve all quantifiers, scope modifiers, timeframes, and population targets (e.g. "all", "entire organization", "all corporate personnel", "every student", "permanently") exactly as stated in the report. NEVER strip or truncate population or scope words from the claim text.
+2. Select relevant passage IDs ONLY from this exact valid list: [${passages.map((p) => p.id).join(', ')}]. If no source passage is relevant, return an empty array [].
+3. Quote the shortest exact excerpt necessary to justify the verdict in highlightPhrases.
+4. State exactly what the source measured and exactly what the claim added or changed in the explanation.
+5. NEVER treat "not measured" as a contradiction. If an outcome was explicitly not measured in the source, use:
+   - outcome: "Overreach detected"
+   - evidenceRelationship: "No relevant evidence"
+   - reasoningIssue: "Metric mismatch" or "No direct evidence"
+6. Never infer medical, scientific, financial, legal, or performance outcomes that are not explicitly in the source. Preserve uncertainty and source limits.
+
+SUGGESTED REVISION RULES:
+- For Supported claims: Must be exactly "No revision required. This claim is fully supported by the cited source passage."
+- For Overreach detected: Provide a concise rewritten claim limited strictly to what the cited source establishes.
+- For Unsupported claims: "Remove this claim or provide a source that directly measures or establishes [missing outcome]."
+- For Contradicted claims: Provide a concise rewritten claim that accurately reflects the cited source.
+- For Needs review claims: "A human reviewer should determine whether additional evidence resolves the ambiguity."
+- DO NOT output "None", empty quotation marks, or generic advice (such as "verify the claim" or "check the source").
+
+EXPLANATION STRUCTURE RULES:
+For every non-supported claim (Overreach detected, Contradicted, Unsupported, Needs review), generate an explanation using this exact template:
+"The source establishes [X]. The claim adds or changes [Y]. Therefore, the claim is [verdict] because [reason]."
+For example:
+"The source establishes a 25% reduction in self-reported stress. The claim changes this outcome to a 25% reduction in heart-disease risk. Therefore, the claim is Overreach detected because the source did not measure heart-disease risk."
+
+CANONICAL BENCHMARK EXAMPLES / ACCEPTANCE RULES:
+Source: "In a 12-week study of 120 adults, participants who followed a supervised walking program reported a 25% reduction in self-reported stress. The study measured only self-reported stress over 12 weeks. It did not measure blood pressure, heart disease risk, long-term health outcomes, anxiety diagnoses, or participants outside the study group."
+- Claim 1: "Participants in a 12-week supervised walking program reported a 25% reduction in self-reported stress."
+  Expected: outcome: "Supported"; evidenceRelationship: "Supports"; reasoningIssue: "None"; suggestedRevision: "No revision required. This claim is fully supported by the cited source passage."
+- Claim 2: "The walking program reduced the risk of heart disease by 25%."
+  Expected: outcome: "Overreach detected"; evidenceRelationship: "No relevant evidence"; reasoningIssue: "Metric mismatch"; explanation: "The source establishes a 25% reduction in self-reported stress. The claim changes this outcome to a 25% reduction in heart-disease risk. Therefore, the claim is Overreach detected because the source did not measure heart-disease risk."; suggestedRevision: "Participants in the 12-week supervised walking program reported a 25% reduction in self-reported stress."
+- Claim 3: "The program permanently cured anxiety for all participants."
+  Expected: outcome: "Overreach detected"; evidenceRelationship: "No relevant evidence"; reasoningIssue: "Duration overreach"; suggestedRevision: "Remove this claim or provide evidence measuring long-term anxiety outcomes for participants."`;
 
     const response = await generateContentWithRetry(ai, {
       model: 'gemini-3.1-flash-lite',
@@ -131,13 +175,21 @@ CRITICAL INSTRUCTIONS:
               },
               reasoningIssue: {
                 type: Type.STRING,
-                description: 'None | Metric mismatch | Population leap | Causal leap | Temporal overreach | Generalization leap | Magnitude inflation',
+                description: 'None | Metric mismatch | Population leap | Causation overreach | Duration overreach | Scope expansion | No direct evidence',
               },
               outcome: {
                 type: Type.STRING,
                 description: 'Supported | Overreach detected | Contradicted | Needs review | Unsupported',
               },
               explanation: { type: Type.STRING },
+              sourceEstablishes: {
+                type: Type.STRING,
+                description: 'What the source establishes',
+              },
+              claimAddsOrChanges: {
+                type: Type.STRING,
+                description: 'What the claim adds or changes',
+              },
               missingEvidence: { type: Type.STRING },
               suggestedRevision: { type: Type.STRING },
               reviewerAction: {
@@ -420,7 +472,7 @@ CLAIM TO VERIFY:
 INSTRUCTIONS:
 1. Select relevant passage IDs ONLY from: [${passages.map((p) => p.id).join(', ')}]. If no passage is relevant, return [].
 2. Classify evidenceRelationship strictly as: "Supports" | "Contradicts" | "Partial support" | "No relevant evidence".
-3. Classify reasoningIssue strictly as: "None" | "Metric mismatch" | "Population leap" | "Causal leap" | "Temporal overreach" | "Generalization leap" | "Magnitude inflation".
+3. Classify reasoningIssue strictly as: "None" | "Metric mismatch" | "Population leap" | "Causation overreach" | "Duration overreach" | "Scope expansion" | "No direct evidence".
 4. Assign outcome strictly as: "Supported" | "Overreach detected" | "Contradicted" | "Needs review" | "Unsupported".
 5. Do NOT mark Supported if numbers match but metrics differ (e.g. satisfaction vs academic performance, revenue vs marketing expense).
 6. Return valid JSON.`;
