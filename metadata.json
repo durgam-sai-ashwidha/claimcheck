@@ -1,0 +1,6 @@
+{
+  "name": "ClaimCheck — Evidence Integrity Workbench",
+  "description": "An evidence integrity workbench that tests whether claims made in a report are supported, contradicted, or overreaching based on supplied source documents.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
