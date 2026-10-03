@@ -9,15 +9,9 @@ import {
 } from 'lucide-react';
 
 export const AdversarialTwinTest: React.FC = () => {
-  const [sourceText, setSourceText] = useState(
-    'Among 50 surveyed students, 40% reported enjoying the learning application.'
-  );
-  const [claimA, setClaimA] = useState(
-    '40% of surveyed students enjoyed the learning application.'
-  );
-  const [claimB, setClaimB] = useState(
-    'The learning application improved academic performance by 40%.'
-  );
+  const [sourceText, setSourceText] = useState('');
+  const [claimA, setClaimA] = useState('');
+  const [claimB, setClaimB] = useState('');
 
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -97,17 +91,21 @@ export const AdversarialTwinTest: React.FC = () => {
           <h2 className="text-2xl sm:text-3xl font-serif font-bold text-[#15231D] mt-1">
             Compare Two Claims Against the Same Source
           </h2>
-          <p className="text-sm text-[#57534E] mt-0.5">
+          <p className="text-sm font-medium text-[#15231D] mt-1">
+            Paste a source passage and test whether each claim is actually justified by it.
+          </p>
+          <p className="text-xs text-[#57534E] mt-0.5">
             Test how live Gemini semantic reasoning distinguishes exact evidence matches from subtle metric substitutions or overreach.
           </p>
         </div>
 
         <button
+          type="button"
           onClick={handleLoadClassicExample}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#DDD8CE] bg-white hover:bg-[#F4F1EA] text-xs font-semibold text-[#15231D] transition-colors cursor-pointer shrink-0"
+          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-[#DDD8CE] bg-white hover:bg-[#F4F1EA] text-xs font-semibold text-[#15231D] transition-colors cursor-pointer shrink-0 shadow-2xs focus-visible:ring-2 focus-visible:ring-[#143D30]"
         >
-          <RotateCcw className="w-3.5 h-3.5 text-[#143D30]" />
-          <span>Load Classic Twin Test</span>
+          <Sparkles className="w-3.5 h-3.5 text-[#143D30]" />
+          <span>Try a demo example</span>
         </button>
       </div>
 
@@ -122,7 +120,7 @@ export const AdversarialTwinTest: React.FC = () => {
             rows={2}
             value={sourceText}
             onChange={(e) => setSourceText(e.target.value)}
-            placeholder="Enter the source statement to test against..."
+            placeholder="Paste a source passage to test against (e.g. Among 50 surveyed students, 40% reported enjoying the learning application)..."
             className="w-full text-base p-3.5 rounded-xl border border-[#DDD8CE] bg-[#FAF8F5] text-[#15231D] font-mono leading-relaxed focus-visible:ring-2 focus-visible:ring-[#143D30] focus-visible:outline-none"
           />
         </div>
@@ -137,7 +135,7 @@ export const AdversarialTwinTest: React.FC = () => {
               rows={2}
               value={claimA}
               onChange={(e) => setClaimA(e.target.value)}
-              placeholder="Enter first claim..."
+              placeholder="Enter Claim A (e.g. 40% of surveyed students enjoyed the learning application)..."
               className="w-full text-base p-3 rounded-xl border border-[#DDD8CE] bg-[#FAF8F5] text-[#15231D] font-serif leading-relaxed focus-visible:ring-2 focus-visible:ring-[#143D30] focus-visible:outline-none"
             />
           </div>
@@ -150,7 +148,7 @@ export const AdversarialTwinTest: React.FC = () => {
               rows={2}
               value={claimB}
               onChange={(e) => setClaimB(e.target.value)}
-              placeholder="Enter second claim..."
+              placeholder="Enter Claim B (e.g. The learning application improved academic performance by 40%)..."
               className="w-full text-base p-3 rounded-xl border border-[#DDD8CE] bg-[#FAF8F5] text-[#15231D] font-serif leading-relaxed focus-visible:ring-2 focus-visible:ring-[#143D30] focus-visible:outline-none"
             />
           </div>
