@@ -232,7 +232,20 @@ export function validateAndEnforceClaim(
 
   let claimAddsOrChanges = rawClaim?.claimAddsOrChanges
     ? String(rawClaim.claimAddsOrChanges).trim()
-    : (outcome === 'Supported' ? 'None. The claim accurately reflects the source.' : `Asserts an unverified outcome (${issue.toLowerCase()}).`);
+    : (outcome === 'Supported'
+        ? 'Nothing. The claim stays within the scope of the cited source passage.'
+        : `Asserts an unverified outcome (${issue.toLowerCase()}).`);
+
+  if (outcome === 'Supported' && (issue === 'None' || !issue)) {
+    if (
+      !claimAddsOrChanges ||
+      claimAddsOrChanges.toLowerCase() === 'none' ||
+      claimAddsOrChanges.toLowerCase() === 'none.' ||
+      claimAddsOrChanges.toLowerCase().startsWith('none')
+    ) {
+      claimAddsOrChanges = 'Nothing. The claim stays within the scope of the cited source passage.';
+    }
+  }
 
   // Ensure outcome, relationship, and reasoning issue remain separate fields
   const explanation = rawClaim?.explanation

@@ -166,7 +166,7 @@ export const InputSection: React.FC<InputSectionProps> = ({
                 Live Evidence Integrity Verification
               </h1>
               <p className="text-base text-[#57534E] mt-1">
-                Paste a short report and 1–3 source documents to test whether the claims are genuinely supported or overreaching.
+                Paste a report of up to 300 words and 1–3 source passages of up to 300 words each. ClaimCheck extracts factual claims and checks whether each is supported, overreaching, contradicted, or unsupported by the supplied evidence.
               </p>
             </div>
 

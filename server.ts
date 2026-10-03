@@ -140,7 +140,7 @@ For example:
 CANONICAL BENCHMARK EXAMPLES / ACCEPTANCE RULES:
 Source: "In a 12-week study of 120 adults, participants who followed a supervised walking program reported a 25% reduction in self-reported stress. The study measured only self-reported stress over 12 weeks. It did not measure blood pressure, heart disease risk, long-term health outcomes, anxiety diagnoses, or participants outside the study group."
 - Claim 1: "Participants in a 12-week supervised walking program reported a 25% reduction in self-reported stress."
-  Expected: outcome: "Supported"; evidenceRelationship: "Supports"; reasoningIssue: "None"; suggestedRevision: "No revision required. This claim is fully supported by the cited source passage."
+  Expected: outcome: "Supported"; evidenceRelationship: "Supports"; reasoningIssue: "None"; claimAddsOrChanges: "Nothing. The claim stays within the scope of the cited source passage."; suggestedRevision: "No revision required. This claim is fully supported by the cited source passage."
 - Claim 2: "The walking program reduced the risk of heart disease by 25%."
   Expected: outcome: "Overreach detected"; evidenceRelationship: "No relevant evidence"; reasoningIssue: "Metric mismatch"; explanation: "The source establishes a 25% reduction in self-reported stress. The claim changes this outcome to a 25% reduction in heart-disease risk. Therefore, the claim is Overreach detected because the source did not measure heart-disease risk."; suggestedRevision: "Participants in the 12-week supervised walking program reported a 25% reduction in self-reported stress."
 - Claim 3: "The program permanently cured anxiety for all participants."

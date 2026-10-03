@@ -161,6 +161,25 @@ export const ClaimDetail: React.FC<ClaimDetailProps> = ({
     }
   }
 
+  // Compute clean "What the Claim Adds or Changes"
+  let displayAddsOrChanges = (claim.claimAddsOrChanges || '').trim();
+  if (
+    claim.outcome === 'Supported' &&
+    (claim.reasoningIssue === 'None' || !claim.reasoningIssue)
+  ) {
+    if (
+      !displayAddsOrChanges ||
+      displayAddsOrChanges.toLowerCase() === 'none' ||
+      displayAddsOrChanges.toLowerCase() === 'none.' ||
+      displayAddsOrChanges.toLowerCase().startsWith('none')
+    ) {
+      displayAddsOrChanges =
+        'Nothing. The claim stays within the scope of the cited source passage.';
+    }
+  } else if (!displayAddsOrChanges) {
+    displayAddsOrChanges = `Substitutes or expands with ${claim.reasoningIssue.toLowerCase()} without empirical evidence.`;
+  }
+
   return (
     <div
       role="region"
@@ -295,10 +314,7 @@ export const ClaimDetail: React.FC<ClaimDetailProps> = ({
             WHAT THE CLAIM ADDS OR CHANGES
           </span>
           <p className="text-xs sm:text-sm text-[#15231D] leading-relaxed">
-            {claim.claimAddsOrChanges ||
-              (claim.outcome === 'Supported'
-                ? 'None. The claim accurately reflects the source.'
-                : `Substitutes or expands with ${claim.reasoningIssue.toLowerCase()} without empirical evidence.`)}
+            {displayAddsOrChanges}
           </p>
         </div>
       </div>
